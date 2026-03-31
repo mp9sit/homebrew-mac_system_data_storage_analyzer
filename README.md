@@ -2,28 +2,34 @@
 
 A fast, dependency-free Python CLI that tells you exactly where your macOS **System Data** storage is going — with orphaned app detection, 2-level category drilldowns, and actionable cleanup commands.
 
-> No third-party packages. No Homebrew required to run. Pure Python 3 stdlib.
+> No third-party packages. Pure Python 3 stdlib. Works on Apple Silicon and Intel.
 
 ---
 
-## Why
-
-macOS reports a large "System Data" bucket in Storage settings but gives you no breakdown. This tool scans the real directories behind that number, ranks them by size, drills into the top culprits, and identifies leftover folders from apps you've already uninstalled.
-
----
-
-## Quick Start
+## Install via Homebrew
 
 ```bash
-# Clone
-git clone https://github.com/mp9sit/mac-storage-analyzer.git
-cd mac-storage-analyzer
-
-# Run (sudo recommended for full access)
-sudo python3 mac_storage_analyzer.py
+brew tap mp9sit/mac_system_data_storage_analyzer
+brew install mac-storage-analyzer
 ```
 
-> **Why sudo?** Many key paths — `~/Library/Application Support`, `/private/var`, `/Library/Caches` — are protected and return 0 bytes without root. The script will warn you and ask before continuing if you forget.
+Then run:
+
+```bash
+sudo mac-storage-analyzer
+```
+
+> **Why sudo?** Many key paths — `~/Library/Application Support`, `/private/var`, `/Library/Caches` — are protected and return 0 bytes without root. The script will warn you with a red banner and ask before continuing if you forget.
+
+---
+
+## Or run directly with Python
+
+```bash
+git clone https://github.com/mp9sit/mac_system_data_storage_analyzer.git
+cd mac_system_data_storage_analyzer
+sudo python3 mac_storage_analyzer.py
+```
 
 ---
 
@@ -31,21 +37,21 @@ sudo python3 mac_storage_analyzer.py
 
 ```bash
 # Default — fast scan, no individual file search
-sudo python3 mac_storage_analyzer.py
+sudo mac-storage-analyzer
 
-# Include large-file hunt (slow on big disks)
-sudo python3 mac_storage_analyzer.py --scan-files
+# Include large-file hunt (slow on big disks — opt-in)
+sudo mac-storage-analyzer --scan-files
 
 # Custom file size threshold (default: 1 GB)
-sudo python3 mac_storage_analyzer.py --scan-files --min-gb 2
-sudo python3 mac_storage_analyzer.py --scan-files --min-gb 0.5
+sudo mac-storage-analyzer --scan-files --min-gb 2
+sudo mac-storage-analyzer --scan-files --min-gb 0.5
 ```
 
 ### Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--scan-files` | off | Scan for individual large files (slow) |
+| `--scan-files` | off | Scan for individual large files (slow, disabled by default) |
 | `--min-gb N` | `1.0` | Minimum file size in GB for `--scan-files` |
 
 ---
@@ -87,7 +93,7 @@ Device count and total size, with cleanup command.
 Cache size and cleanup command.
 
 ### 🔍 Individual File Scan *(opt-in)*
-Finds files above your size threshold across home directory, `/Library`, and `/private/var`. Disabled by default because it can take several minutes on large disks — enable with `--scan-files`.
+Finds files above your size threshold. Disabled by default because it can take several minutes on large disks — enable with `--scan-files`.
 
 ### 🗑 Orphaned App Support Folders
 The most actionable section. Compares every folder in `~/Library/Application Support` (≥ 100 MB) against your installed apps in `/Applications` using a 5-layer matching pipeline:
@@ -98,7 +104,7 @@ The most actionable section. Compares every folder in `~/Library/Application Sup
 4. **Token overlap** — fuzzy word-level matching handles compound names
 5. **Bundle prefix** — `com.google.*` matches any Google app present
 
-Flags folders where no installed app could be matched across all 5 checks.
+Only folders that pass through all 5 layers without a match are flagged as orphans.
 
 ### 💡 Cleanup Recommendations
 Prioritised list of actionable tips based on what was actually found — only shown when thresholds are exceeded.
@@ -110,7 +116,7 @@ Prioritised list of actionable tips based on what was actually found — only sh
 The script always reminds you to back up before deleting anything:
 
 ```bash
-# Step 1: move to Desktop (easy to restore if something breaks)
+# Step 1: move to Desktop (safe — easy to restore if something breaks)
 mv "~/Library/Application Support/<FolderName>" ~/Desktop/<FolderName>.bak
 
 # Step 2: launch the relevant app and verify everything still works
@@ -123,42 +129,35 @@ rm -rf ~/Desktop/<FolderName>.bak
 
 ## Requirements
 
-- macOS (tested on macOS 13 Ventura and later, Apple Silicon + Intel)
-- Python 3.9+  *(pre-installed on all modern Macs)*
-- No pip installs, no virtual environments, no Homebrew
-
----
-
-## Installing via Homebrew *(coming soon)*
-
-```bash
-brew tap YOUR_USERNAME/mac-storage-analyzer
-brew install mac-storage-analyzer
-
-# Then run:
-sudo mac-storage-analyzer
-```
+- macOS 13 Ventura or later (Apple Silicon + Intel)
+- Python 3.9+ *(pre-installed on all modern Macs)*
+- No pip installs, no virtual environments
 
 ---
 
 ## Contributing
 
-Pull requests welcome. Common areas to improve:
-
-- Additional vendor mappings in `vendor_map.json` for apps not yet covered
-- Additional system-folder entries in `vendor_map.json`
-- Support for additional package managers (Cargo, Go modules, etc.)
+Pull requests welcome. The easiest contribution is adding vendor mappings — **no Python knowledge required**, just edit `vendor_map.json`:
 
 ### Adding a vendor mapping
 
-Edit `vendor_map.json` — no Python knowledge required:
+`vendor_map.json` has two sections:
 
+**`vendor_map`** — for when a folder name doesn't match its `.app` name:
 ```json
 {
   "vendor_map": {
     "bravesoftware": "brave",
-    "yourappfolder": "your app name"
-  },
+    "yourappfolder": "your app name stem"
+  }
+}
+```
+Key = lowercase folder name in `~/Library/Application Support`
+Value = substring of the `.app` name in `/Applications`
+
+**`system_folders`** — for macOS/framework folders that should never be flagged:
+```json
+{
   "system_folders": [
     "coremlcache",
     "yoursystemfolder"
@@ -166,12 +165,9 @@ Edit `vendor_map.json` — no Python knowledge required:
 }
 ```
 
-| Field | Key | Value |
-|-------|-----|-------|
-| `vendor_map` | Lowercase folder name in `~/Library/Application Support` | Substring of the `.app` name in `/Applications` |
-| `system_folders` | Lowercase folder name | *(no value — presence means "always safe, never flag")* |
-
-The script loads `vendor_map.json` from the same directory as `mac_storage_analyzer.py` at runtime. If the file is missing, a warning is shown and orphan detection falls back to bundle ID + token matching only.
+Other areas to improve:
+- Support for additional package managers (Cargo, Go modules, rbenv, etc.)
+- Additional category paths for niche tools
 
 ---
 
