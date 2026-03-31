@@ -16,7 +16,7 @@ macOS reports a large "System Data" bucket in Storage settings but gives you no 
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/mac-storage-analyzer.git
+git clone https://github.com/mp9sit/mac-storage-analyzer.git
 cd mac-storage-analyzer
 
 # Run (sudo recommended for full access)
