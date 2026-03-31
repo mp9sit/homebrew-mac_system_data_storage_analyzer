@@ -2,7 +2,7 @@ class MacStorageAnalyzer < Formula
   desc "Analyze where your macOS System Data storage is going"
   homepage "https://github.com/mp9sit/mac_system_data_storage_analyzer"
   url "https://github.com/mp9sit/mac_system_data_storage_analyzer/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "02d028d44875ee56e88b01bda953866575c33f4eff04355ef6a66b5c1ca20847"
+  sha256 "a9e063213b804fb9c0a0ede44963def58337a9ab8b338685795d0871ca0641f3"
   license "MIT"
 
   def install
